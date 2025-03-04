@@ -9,6 +9,6 @@ type TestProps = PropsWithChildren<{
 }>;
 
 export default function Test({ href, children }: TestProps) {
-  console.log(usePathname());
+  console.log('usePathname', usePathname());
   return <Link href={href}>{children}</Link>;
 }
