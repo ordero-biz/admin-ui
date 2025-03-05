@@ -119,7 +119,14 @@ To promote changes from `qa` to `main`, follow the steps below:
 
 #### 7. Keeping QA Branch in Sync with Main
 
-To keep the `qa` branch in sync with the `main` branch, you can periodically merge changes from the `main` branch into the `qa` branch. Follow these steps:
+The process of keeping the `qa` branch in sync with the `main` branch is semi-automated using the **`Sync QA with Main` GitHub Action**.
+
+- When a pull request (PR) from `qa` to `main` is successfully merged, GitHub Action can be manually runs and synchronizes both branches.
+- This ensures that any changes merged into `main` are immediately reflected in `qa` without the need for manual intervention.
+
+The use of this GitHub Action streamlines the workflow, maintaining the integrity and synchronization of both branches.
+
+To keep the `qa` branch in sync with the `main` branch via CLI (merge changes from the `main` branch into the `qa` branch), follow these steps:
 
 1. **Fetch the latest changes from the remote repository:**
 

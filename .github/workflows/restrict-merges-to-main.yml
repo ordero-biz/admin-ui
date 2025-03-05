@@ -1,11 +1,14 @@
 name: Restrict Merges to Main
+
 on:
   pull_request:
     branches:
       - main
+
 jobs:
   restrict-merge:
     runs-on: ubuntu-latest
+
     steps:
       - name: Check if PR is from the 'qa' branch
         run: |
