@@ -31,7 +31,7 @@ jobs:
 
       - name: Debugging Commit Information
         run: |
-          echo "Branches tracked:"
+          echo "Tracked remote branches:"
           git branch -r
           echo "Commits Ahead: ${{ env.commits_ahead }}"
           git log origin/qa..origin/main --oneline || echo "No commits difference."
@@ -43,10 +43,6 @@ jobs:
           git commit --allow-empty -m "[Automation] Force PR with empty commit"
           git push --force origin temp-sync-main-to-qa
 
-      - name: Debug Branch Push
-        if: ${{ env.commits_ahead != '0' }}
-        run: git ls-remote --heads origin
-
       - name: Create Pull Request
         id: create_pr_step
         if: ${{ env.commits_ahead != '0' }}
@@ -57,13 +53,34 @@ jobs:
           base: qa
           title: "[Automation] Sync main to qa"
           body: |
+            ## Automated Pull Request
             This PR merges changes from `main` into `qa`.
+
+            **Commits Ahead**: ${{ env.commits_ahead }}
           labels: automated
           delete-branch: true
           commit-message: "[Automation] Sync main to qa"
-          branch-suffix: uuid
+          branch-suffix: timestamp
 
       - name: Debug PR Creation Logs
         run: |
           echo "PR URL: ${{ steps.create_pr_step.outputs.pull-request-url }}"
           echo "PR Branch: ${{ steps.create_pr_step.outputs.pull-request-branch }}"
+
+      - name: Auto-Approve PR
+        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }}
+        run: |
+          PR_NUMBER=$(echo "${{ steps.create_pr_step.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
+          curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
+            -d '{"body":"Auto-approved by workflow.","event":"APPROVE"}'
+
+      - name: Auto-Merge PR
+        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }}
+        run: |
+          PR_NUMBER=$(echo "${{ steps.create_pr_step.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
+          curl -X PUT -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
+            -d '{"merge_method":"squash"}'
