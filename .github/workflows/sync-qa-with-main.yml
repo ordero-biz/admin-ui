@@ -11,8 +11,6 @@ jobs:
       # Step 1: Checkout Repository
       - name: Checkout Repository
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0 # Ensure full git history is fetched
 
       # Step 2: Setup Git
       - name: Setup Git
@@ -46,12 +44,14 @@ jobs:
           # Create a temporary branch based on main
           git checkout -b temp-sync-main-to-qa origin/main
           
-          # Add a dummy change to ensure a PR is created
-          echo "Automated sync at $(date)" >> automated-sync.log
+          # Introduce a meaningful and unique dummy change with a timestamp
+          echo "Automated sync process at $(date)" >> automated-sync-$(date +'%Y%m%d%H%M%S').log
 
-          # Add changes, commit, and push
-          git add automated-sync.log
-          git commit -m "Automated sync process with dummy file change"
+          # Stage and commit the change
+          git add .
+          git commit -m "Automated sync process with dummy file"
+          
+          # Push the temporary branch to origin
           git push --force origin temp-sync-main-to-qa
 
       # Step 4.2: Create PR from main to qa
@@ -71,16 +71,16 @@ jobs:
           commit-message: Sync main to qa
           branch-suffix: timestamp
 
-      # Debug PR creation outputs
+      # Step 4.3: Debug outputs from create-pull-request
       - name: Debug PR creation outputs
-        if: steps.create_pr_step.outputs.pull-request-url != ''
+        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }}
         run: |
           echo "Pull request URL: ${{ steps.create_pr_step.outputs.pull-request-url }}"
           echo "Pull request branch: ${{ steps.create_pr_step.outputs.pull-request-branch }}"
 
       # Step 5: Auto-approve pull request
       - name: Auto-approve pull request
-        if: steps.create_pr_step.outputs.pull-request-url != '' # Verify PR exists
+        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }} # Verify PR exists
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -92,7 +92,7 @@ jobs:
 
       # Step 6: Auto-merge pull request
       - name: Auto-merge pull request
-        if: steps.create_pr_step.outputs.pull-request-url != '' # Verify PR exists
+        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }} # Verify PR exists
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
