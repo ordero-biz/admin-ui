@@ -1,16 +1,16 @@
 name: Create PR from main to qa
 
-# Trigger manually via workflow_dispatch
 on:
-  workflow_dispatch: # Manual trigger ONLY
+  workflow_dispatch: # Manually triggered
 
 permissions:
-  contents: write      # Needed to push/create pull requests
-  pull-requests: write # Needed to create PRs
+  contents: write      # Allows creation of branches and PRs
+  pull-requests: write # Allows handling pull requests
+  actions: write       # Allows approvals from the `GITHUB_TOKEN`
 
 jobs:
   create-pr:
-    name: Create Pull Request from main to qa
+    name: Create and Merge Pull Request
     runs-on: ubuntu-latest
 
     steps:
@@ -19,41 +19,40 @@ jobs:
         uses: actions/checkout@v4
 
       # Step 2: Create the pull request
-      - name: Create PR directly from main to qa
+      - name: Create PR from main to qa
         id: create_pr
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          base: qa          # Target branch
-          branch: main       # Source branch
-          title: Merge main into qa
+          branch: temp-sync-main-to-qa # A temporary branch used for this workflow
+          base: qa                     # Target branch (qa)
+          title: Sync main with qa
           body: |
-            This pull request directly merges the main branch into the qa branch.
-          labels: automated # Optional: Add an "automated" label
-          reviewers: ${{ github.actor }} # Optional: Add the workflow runner as the reviewer
+            This PR was automatically created to sync the `main` branch with the `qa` branch.
+          labels: automated
+          delete-branch: true          # Delete the temporary branch after successful PR merge
+          reviewers: ${{ github.actor }} # Optional reviewer, usually the workflow initiator
 
-      # Step 3: Log the PR output
-      - name: Log PR creation output
-        run: |
-          echo "Created PR: ${{ steps.create_pr.outputs.pull-request-url }}"
-      
-      # Step 4: Automatically approve the pull request
-      - name: Approve the pull request
-        if: steps.create_pr.outputs.pull-request-url != ''
+      # Step 3: Automatically approve the pull request
+      - name: Approve pull request
+        if: steps.create_pr.outputs.pull-request-url != '' # Check if PR was successfully created
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
-          curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-               -X POST "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews" \
-               -d '{"event":"APPROVE"}'
+          curl -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
+            -d '{"body": "Automatically approved", "event": "APPROVE"}'
 
-      # Step 5: Automatically merge the pull request
-      - name: Merge the pull request
-        if: steps.create_pr.outputs.pull-request-url != ''
+      # Step 4: Automatically merge the pull request
+      - name: Merge pull request
+        if: steps.create_pr.outputs.pull-request-url != '' # Check if PR was successfully created
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
-          curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-               -X PUT "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge"
+          curl -X PUT -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
+            -d '{"merge_method": "squash"}'
