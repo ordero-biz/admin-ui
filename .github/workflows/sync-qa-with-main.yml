@@ -18,93 +18,81 @@ jobs:
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
-      # Step 3: Compare main and qa branches
-      - name: Check if `main` is ahead of `qa`
+      # Step 3: Compare branches to decide if `main` is ahead
+      - name: Compare main and qa branches
         id: check_diff
         run: |
           # Fetch all branches
           git fetch origin
 
-          # Compare commits between `main` and `qa`
+          # Determine if `main` is ahead of `qa`
           COMMITS_AHEAD=$(git rev-list --left-only --count origin/main...origin/qa)
 
-          # Output commits ahead as an environment variable
-          echo "Main is $COMMITS_AHEAD commits ahead of QA"
-          echo "commits_ahead=$(echo "$COMMITS_AHEAD" | xargs)" >> $GITHUB_ENV
+          # Output variable
+          echo "commits_ahead=$COMMITS_AHEAD" >> $GITHUB_ENV
+          echo "Main is $COMMITS_AHEAD commits ahead of QA."
 
-      # Debugging step for commits_ahead
-      - name: Debugging Commits Ahead
+      # Debugging step for commit comparison
+      - name: Debug Commits Ahead Check
         run: |
-          echo "Commits Ahead of QA: ${{ env.commits_ahead }}"
+          echo "Commits Ahead: ${{ env.commits_ahead }}"
 
-      # Step 4.1: Create new branch for the sync (force changes for PR creation)
-      - name: Create new sync branch
+      # Step 4: If `main` is ahead, create a branch with forced changes
+      - name: Create a sync branch (force PR)
         if: ${{ env.commits_ahead != '0' }}
         run: |
-          # Create a new branch from main
+          # Create and switch to a new branch from `main`
           git checkout -b temp-sync-main-to-qa origin/main
 
-          # Add a dummy commit to force PR creation (preserves history)
-          GIT_HISTORY="Sync updated on $(date)"
-          echo "$GIT_HISTORY" > .sync-history.txt
-          git add .sync-history.txt
-          git commit -m "[Automated] Force-PR Sync - $GIT_HISTORY"
+          # Force an empty commit to ensure branch difference
+          git commit --allow-empty -m "[Automation] Force PR with empty commit"
 
-          # Push branch to origin
+          # Push the branch to the remote
           git push --force origin temp-sync-main-to-qa
 
-      # Step 4.2: Create PR from main to qa
+      # Step 5: Create pull request using `peter-evans/create-pull-request`
       - name: Create Pull Request
-        id: create_pr_step
+        id: create_pr
         if: ${{ env.commits_ahead != '0' }}
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: temp-sync-main-to-qa
           base: qa
-          title: "Sync main to qa"
+          title: "[Automation] Sync main to qa"
           body: |
-            ### Pull Request Description
-            This PR is automatically created to merge updates from `main` into `qa`.
+            ## Automated PR
+            This PR merges changes from `main` into `qa`.
 
-            **Commits ahead in main**: ${{ env.commits_ahead }}
+            - **Commits ahead in `main`**: ${{ env.commits_ahead }}
           labels: automated
           delete-branch: true
-          commit-message: "Sync main to qa"
 
-      # Debugging PR outputs
-      - name: Debug PR Outputs
-        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }}
+      # Step 6: Debug PR Creation
+      - name: Debug Created PR
+        if: ${{ steps.create_pr.outputs.pull-request-url != '' }}
         run: |
-          echo "Pull Request URL: ${{ steps.create_pr_step.outputs.pull-request-url }}"
-          echo "Pull Request Branch: ${{ steps.create_pr_step.outputs.pull-request-branch }}"
+          echo "PR URL: ${{ steps.create_pr.outputs.pull-request-url }}"
+          echo "Branch: ${{ steps.create_pr.outputs.pull-request-branch }}"
 
-      # Step 5: Auto-approve pull request
-      - name: Auto-approve pull request
-        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Step 7: Auto-approve Pull Request
+      - name: Auto-Approve PR
+        if: ${{ steps.create_pr.outputs.pull-request-url != '' }}
         run: |
-          PR_URL="${{ steps.create_pr_step.outputs.pull-request-url }}"
-          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
-          echo "Approving PR #$PR_NUMBER"
-          curl -X POST \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
-            -d '{"body": "Automatically approved.", "event": "APPROVE"}'
+          PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
+          echo "Auto-approving PR #$PR_NUMBER"
+          curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github+json" \
+               https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
+               -d '{"body":"Auto-approved by workflow.","event":"APPROVE"}'
 
-      # Step 6: Auto-merge pull request
-      - name: Auto-merge pull request
-        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Step 8: Auto-merge Pull Request
+      - name: Auto-Merge PR
+        if: ${{ steps.create_pr.outputs.pull-request-url != '' }}
         run: |
-          PR_URL="${{ steps.create_pr_step.outputs.pull-request-url }}"
-          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
-          echo "Merging PR #$PR_NUMBER"
-          curl -X PUT \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
-            -d '{"merge_method": "squash"}'
+          PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
+          echo "Auto-merging PR #$PR_NUMBER"
+          curl -X PUT -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github+json" \
+               https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
+               -d '{"merge_method":"squash"}'
