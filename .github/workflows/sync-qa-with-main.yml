@@ -61,7 +61,7 @@ jobs:
       # Step 7: Automerge the pull request if created
       - name: Auto-merge pull request
         if: steps.create_pr.outputs.pull-request-url != ''
-        uses: peter-evans/merge-pull-request@v3
+        uses: peter-evans/merge-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           pull-request: ${{ steps.create_pr.outputs.pull-request-number }}
