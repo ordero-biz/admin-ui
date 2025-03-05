@@ -30,6 +30,7 @@ jobs:
 
       - name: Merge qa into the new branch
         run: |
+          git fetch origin qa
           git merge origin/qa --no-ff --no-commit
 
       - name: Push the new branch
@@ -51,7 +52,7 @@ jobs:
 
       - name: Merge pull request
         run: |
-          gh pr merge ${{ steps.create_pr.outputs.pull-request-number }} --merge --admin
+          gh pr merge ${{ steps.create_pr.outputs.pull-request-number }} --merge --admin --repo ${{ github.repository }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USER: ${{ github.actor }}
