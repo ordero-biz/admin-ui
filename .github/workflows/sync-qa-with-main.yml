@@ -22,11 +22,12 @@ jobs:
       - name: Fetch all branches
         run: git fetch --all
 
-      - name: Merge main into qa
-        run: |
-          git checkout qa
-          git merge origin/main
-
-      - name: Push changes to qa
-        run: |
-          git push https://username:${{ secrets.ACTIONS_PAT }}@github.com/ordero-biz/admin-ui.git qa
+      - name: Create pull request from main to qa
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.ACTIONS_PAT }}
+          base: qa
+          head: main
+          title: 'Sync QA with Main'
+          body: 'This is an automated pull request to sync the `qa` branch with the latest changes from the `main` branch.'
+          commit-message: 'Sync QA with Main'
