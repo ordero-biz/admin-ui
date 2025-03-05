@@ -1,46 +1,77 @@
-name: Sync QA with Main
+name: Sync main to qa
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Triggered manually
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: write      # For creating branches/commits
+  pull-requests: write # For handling pull requests
+  actions: write       # For programmatically approving a PR
 
 jobs:
-  sync:
-    if: github.event_name == 'workflow_dispatch'
+  sync-main-to-qa:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Check out the repository
       - name: Checkout repository
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-          ref: main
+        uses: actions/checkout@v4
 
-      - name: Set up Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      # Step 2: Fetch changes and ensure proper comparison
+      - name: Fetch all branches
+        run: git fetch --all
 
-      - name: Create a new branch
+      # Step 3: Compare main and qa branches
+      - name: Compare main and qa branches
+        id: check_diff
         run: |
-          git checkout -b sync-main-to-qa
-          git merge origin/qa --no-ff --no-commit
-
-      - name: Push the new branch
-        run: |
-          git push -u origin sync-main-to-qa
+          git fetch origin main:main qa:qa
+          COMMITS_AHEAD=$(git rev-list --left-only --count origin/main...origin/qa)
+          echo "Main is $COMMITS_AHEAD commits ahead of QA"
+          echo "commits_ahead=$(echo "$COMMITS_AHEAD" | xargs)" >> $GITHUB_ENV
         env:
-          GITHUB_TOKEN: ${{ secrets.ACTIONS_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create pull request
-        uses: peter-evans/create-pull-request@v7.0.8
+      # Debugging step for commits_ahead
+      - name: Debug commits_ahead value
+        run: |
+          echo "Commits ahead: ${{ env.commits_ahead }}"
+
+      # Step 4: Create PR from main to qa
+      - name: Create PR from main to qa
+        id: create_pr
+        if: ${{ env.commits_ahead != '0' }}
+        uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.ACTIONS_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: temp-sync-main-to-qa
           base: qa
-          branch: sync-main-to-qa
-          title: 'Sync QA with Main'
-          body: 'This is an automated pull request to sync the `qa` branch with the latest changes from the `main` branch.'
-          commit-message: 'Sync QA with Main'
+          title: Sync main to qa
+          body: |
+            This automated PR merges the latest changes from `main` into `qa`.
+          labels: automated
+          delete-branch: true
+
+      # Step 5: Auto-approve pull request
+      - name: Auto-approve pull request
+        if: steps.create_pr.outputs.pull-request-url != '' # Only if a PR was created
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
+          curl -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
+            -d '{"body": "Automatically approved", "event": "APPROVE"}'
+
+      # Step 6: Auto-merge pull request
+      - name: Auto-merge pull request
+        if: steps.create_pr.outputs.pull-request-url != '' # Only if a PR was created
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
+          curl -X PUT -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
+            -d '{"merge_method": "squash"}'
