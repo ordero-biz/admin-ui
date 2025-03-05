@@ -1,41 +1,54 @@
-name: Create PR from main to qa
+name: Sync main to qa
 
 on:
-  workflow_dispatch: # Manually triggered
+  workflow_dispatch: # Triggered manually
 
 permissions:
-  contents: write      # Allows creation of branches and PRs
-  pull-requests: write # Allows handling pull requests
-  actions: write       # Allows approvals from the `GITHUB_TOKEN`
+  contents: write      # For creating branches/commits
+  pull-requests: write # For handling pull requests
+  actions: write       # For programmatically approving a PR
 
 jobs:
-  create-pr:
-    name: Create and Merge Pull Request
+  sync-main-to-qa:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
+      # Step 1: Check out the repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Create the pull request
-      - name: Create PR from main to qa
+      # Step 2: Fetch changes and ensure proper comparison
+      - name: Fetch all branches
+        run: git fetch --all
+
+      # Step 3: Check if `main` is ahead of `qa`
+      - name: Compare main and qa branches
+        id: check_diff
+        run: |
+          # Check if main is ahead of qa by checking for differences in commits
+          git checkout qa
+          COMMITS_BEHIND=$(git rev-list --left-only --count qa...origin/main)
+          echo "commits_behind=$COMMITS_BEHIND" >> $GITHUB_ENV
+
+      # Step 4: Create the Pull Request from main to qa
+      - name: Create PR from main to qa if changes exist
         id: create_pr
+        if: env.commits_behind != '0' # Proceed only if main has new commits ahead
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: temp-sync-main-to-qa # A temporary branch used for this workflow
-          base: qa                     # Target branch (qa)
-          title: Sync main with qa
+          branch: temp-sync-main-to-qa # Temporary branch for this PR
+          base: qa                     # Target branch for merging
+          title: Sync main to qa
           body: |
-            This PR was automatically created to sync the `main` branch with the `qa` branch.
+            This automated PR merges the latest changes from `main` into `qa`.
           labels: automated
-          delete-branch: true          # Delete the temporary branch after successful PR merge
-          reviewers: ${{ github.actor }} # Optional reviewer, usually the workflow initiator
+          delete-branch: true          # Automatically clean up the temporary branch
+          reviewers: ${{ github.actor }}
 
-      # Step 3: Automatically approve the pull request
-      - name: Approve pull request
-        if: steps.create_pr.outputs.pull-request-url != '' # Check if PR was successfully created
+      # Step 5: Automatically approve the pull request
+      - name: Auto-approve pull request
+        if: steps.create_pr.outputs.pull-request-url != '' # Only if a PR was created
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -45,9 +58,9 @@ jobs:
             https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
             -d '{"body": "Automatically approved", "event": "APPROVE"}'
 
-      # Step 4: Automatically merge the pull request
-      - name: Merge pull request
-        if: steps.create_pr.outputs.pull-request-url != '' # Check if PR was successfully created
+      # Step 6: Automatically merge the pull request
+      - name: Auto-merge pull request
+        if: steps.create_pr.outputs.pull-request-url != '' # Only if a PR was created
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
