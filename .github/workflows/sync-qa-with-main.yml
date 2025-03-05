@@ -2,15 +2,10 @@ name: Sync QA with Main
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-    types:
-      - closed
 
 jobs:
   sync:
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
