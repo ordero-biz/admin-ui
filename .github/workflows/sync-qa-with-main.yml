@@ -9,36 +9,39 @@ permissions:
 
 jobs:
   sync:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event.pull_request.merged == true || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+      - name: Checkout main branch
+        uses: actions/checkout@v3
         with:
+          ref: main # Ensure the main branch is checked out
           fetch-depth: 0
-          ref: main
 
       - name: Set up Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Create a new branch
+      - name: Create a new branch from main
         run: |
           git checkout -b sync-main-to-qa
+
+      - name: Merge qa into the new branch
+        run: |
           git merge origin/qa --no-ff --no-commit
 
       - name: Push the new branch
         run: |
           git push -u origin sync-main-to-qa
         env:
-          GITHUB_TOKEN: ${{ secrets.ACTIONS_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@v7.0.8
         with:
-          token: ${{ secrets.ACTIONS_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           base: qa
           branch: sync-main-to-qa
           title: 'Sync QA with Main'
