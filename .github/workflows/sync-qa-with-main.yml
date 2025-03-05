@@ -25,20 +25,36 @@ jobs:
       - name: Compare main and qa branches
         id: check_diff
         run: |
-          # Fetch all branches without affecting the working tree
           git fetch origin
-
-          # Compare commits between origin/main and origin/qa
           COMMITS_AHEAD=$(git rev-list --left-only --count origin/main...origin/qa)
-
-          # Output results
           echo "Main is $COMMITS_AHEAD commits ahead of QA"
           echo "commits_ahead=$(echo "$COMMITS_AHEAD" | xargs)" >> $GITHUB_ENV
 
-      # Debugging step for commits_ahead
+      # Debugging: Log commits_ahead value
       - name: Debug commits_ahead value
         run: |
-          echo "Commits ahead: ${{ env.commits_ahead }}"
+          echo "Commits ahead value: ${{ env.commits_ahead }}"
+
+      # Ensure a dummy commit for PR creation
+      - name: Ensure a dummy commit for PR creation
+        if: ${{ env.commits_ahead != '0' }}
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          
+          # Create a temporary branch based on main
+          git checkout -b temp-sync-main-to-qa origin/main
+          
+          # Add a dummy commit if there are no changes
+          git commit --allow-empty -m "Dummy commit to force PR creation"
+          
+          # Push the temporary branch to origin
+          git push origin temp-sync-main-to-qa
+
+      # Debugging: Check dummy commit in temporary branch
+      - name: Debug temporary branch
+        if: ${{ env.commits_ahead != '0' }}
+        run: git log origin/temp-sync-main-to-qa --oneline
 
       # Step 4: Create PR from main to qa
       - name: Create PR from main to qa
@@ -47,34 +63,10 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: temp-sync-main-to-qa
+          branch: temp-sync-main-to-qa # Temporary branch created in the previous step
           base: qa
           title: Sync main to qa
           body: |
             This automated PR merges the latest changes from `main` into `qa`.
           labels: automated
           delete-branch: true
-
-      # Step 5: Auto-approve pull request
-      - name: Auto-approve pull request
-        if: steps.create_pr.outputs.pull-request-url != '' # Only if a PR was created
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
-          curl -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
-            -d '{"body": "Automatically approved", "event": "APPROVE"}'
-
-      # Step 6: Auto-merge pull request
-      - name: Auto-merge pull request
-        if: steps.create_pr.outputs.pull-request-url != '' # Only if a PR was created
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
-          curl -X PUT -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
-            -d '{"merge_method": "squash"}'
