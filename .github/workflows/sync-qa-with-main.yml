@@ -21,38 +21,38 @@ jobs:
       - name: Fetch all branches
         run: git fetch --all
 
-      # Step 3: Check if `main` is ahead of `qa`
+      # Step 3: Compare main and qa branches
       - name: Compare main and qa branches
         id: check_diff
         run: |
-          # Ensure remote branches are up to date
           git fetch origin main:main qa:qa
-
-          # Compare remote main and qa branches
           COMMITS_AHEAD=$(git rev-list --left-only --count origin/main...origin/qa)
-
           echo "Main is $COMMITS_AHEAD commits ahead of QA"
-          echo "commits_ahead=$COMMITS_AHEAD" >> $GITHUB_ENV
+          echo "commits_ahead=$(echo "$COMMITS_AHEAD" | xargs)" >> $GITHUB_ENV
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 4: Create the Pull Request from main to qa
-      - name: Create PR from main to qa if changes exist
+      # Debugging step for commits_ahead
+      - name: Debug commits_ahead value
+        run: |
+          echo "Commits ahead: ${{ env.commits_ahead }}"
+
+      # Step 4: Create PR from main to qa
+      - name: Create PR from main to qa
         id: create_pr
-        if: env.commits_behind != '0' # Proceed only if main has new commits ahead
+        if: ${{ env.commits_ahead != '0' }}
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: temp-sync-main-to-qa # Temporary branch for this PR
-          base: qa                     # Target branch for merging
+          branch: temp-sync-main-to-qa
+          base: qa
           title: Sync main to qa
           body: |
             This automated PR merges the latest changes from `main` into `qa`.
           labels: automated
-          delete-branch: true          # Automatically clean up the temporary branch
-          reviewers: ${{ github.actor }}
+          delete-branch: true
 
-      # Step 5: Automatically approve the pull request
+      # Step 5: Auto-approve pull request
       - name: Auto-approve pull request
         if: steps.create_pr.outputs.pull-request-url != '' # Only if a PR was created
         env:
@@ -64,7 +64,7 @@ jobs:
             https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
             -d '{"body": "Automatically approved", "event": "APPROVE"}'
 
-      # Step 6: Automatically merge the pull request
+      # Step 6: Auto-merge pull request
       - name: Auto-merge pull request
         if: steps.create_pr.outputs.pull-request-url != '' # Only if a PR was created
         env:
