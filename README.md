@@ -39,65 +39,53 @@ This section describes the branching and merge process used in this project to e
 
 ### Workflow Steps
 
-#### 1. Creating a Feature Branch
-- Always branch off from `qa`.
-- Use the naming convention: `feat/<ticket-number>-<feature-name>`.
-  ```bash
-  git checkout qa
-  git pull origin qa
-  git checkout -b feat/<ticket-number>-<feature-name>
-  ```
-  Example:
-  ```bash
-  git checkout -b feat/1234-add-user-auth
-  ```
+#### 1. Creating a New Branch
 
-#### 2. Creating a Bug Fix Branch
-- Always branch off from `qa`.
-- Use the naming convention: `fix/<ticket-number>-<feature-name>`.
-  ```bash
-  git checkout qa
-  git pull origin qa
-  git checkout -b fix/<ticket-number>-<feature-name>
-  ```
-  Example:
-  ```bash
-  git checkout -b fix/5678-fix-login-bug
-  ```
+All work must be done on dedicated branches based on `qa`. Depending on the nature of the task, follow the branch naming conventions below:
 
-#### 3. Creating a Documentation Branch
-- Always branch off from `qa`.
-- Use the naming convention: `doc/<ticket-number>-<feature-name>`.
-  ```bash
-  git checkout qa
-  git pull origin qa
-  git checkout -b doc/<ticket-number>-<feature-name>
-  ```
-  Example:
-  ```bash
-  git checkout -b doc/9101-update-readme
-  ```
+- **Feature Branches**: Use `feat/<ticket-number>-<feature-name>`.  
+  Example: `feat/1234-add-user-auth`
+- **Bug Fix Branches**: Use `fix/<ticket-number>-<bug-fix-description>`.  
+  Example: `fix/5678-fix-login-bug`
+- **Documentation Branches**: Use `doc/<ticket-number>-<topic-name>`.  
+  Example: `doc/9101-update-readme`
 
-#### 4. Committing Changes
+##### Steps to Create a Branch:
+1. Check out the `qa` branch.
+   ```bash
+   git checkout qa
+   git pull origin qa
+   ```
+2. Create a new branch using the appropriate naming convention.
+   ```bash
+   git checkout -b <branch-name>
+   ```
+
+Example for a feature:
+```bash
+git checkout -b feat/1234-add-user-auth
+```
+
+Example for a bug fix:
+```bash
+git checkout -b fix/5678-fix-login-bug
+```
+
+Example for documentation:
+```bash
+git checkout -b doc/9101-update-readme
+```
+
+---
+
+#### 3. Committing Changes
 - Use meaningful commit messages that describe the changes for each commit.
   ```bash
   git add .
   git commit -m "Add meaningful description (Ticket: <ticket-number>)"
   ```
-  Example for a feature:
-  ```bash
-  git commit -m "Implement user authentication (Ticket: 1234)"
-  ```
-  Example for a bug fix:
-  ```bash
-  git commit -m "Fix login page validation issues (Ticket: 5678)"
-  ```
-  Example for documentation:
-  ```bash
-  git commit -m "Update README.md for user auth setup (Ticket: 9101)"
-  ```
 
-#### 5. Pushing Changes
+#### 4. Pushing Changes
 - Push your branch to the remote repository for review.
   ```bash
   git push origin <branch-name>
@@ -115,26 +103,59 @@ This section describes the branching and merge process used in this project to e
   git push origin doc/9101-update-readme
   ```
 
-#### 6. Creating a Pull Request (PR)
+#### 5. Creating a Pull Request (PR)
 - Create a PR to merge your branch into `qa`.
 - Ensure all tests pass and the code is reviewed before merging.
 - **All PRs into `qa` must be merged using the `Squash` merge strategy**, so that the feature or fix is represented as a single commit in `qa`.
 
-#### 7. Merging `qa` into `main`
-- Use **rebasing** to integrate changes from `qa` into `main` instead of merging. Rebasing ensures a linear history in the `main` branch, which is easier to review and maintain.
-  ```bash
-  git checkout main
-  git pull origin main
-  git rebase qa
-  git push origin main
-  ```
+#### 6. Merging `qa` into `main`
+
+To promote changes from `qa` to `main`, follow the steps below:
+
+1. Create a pull request (PR) from `qa` to `main`.
+2. Ensure all tests pass and the PR is thoroughly reviewed by the team.
+3. **Use the `Merge Commit` strategy to merge the PR**.
+    - This ensures a clear history and traceability between branches, preserving the context of individual commits.
+
+#### 7. Keeping QA Branch in Sync with Main
+
+To keep the `qa` branch in sync with the `main` branch, you can periodically merge changes from the `main` branch into the `qa` branch. Follow these steps:
+
+1. **Fetch the latest changes from the remote repository:**
+
+   ```sh
+   git fetch origin
+   ```
+
+2. **Switch to the `qa` branch:**
+
+   ```sh
+   git checkout qa
+   ```
+
+3. **Merge the latest changes from the `main` branch into the `qa` branch:**
+
+   ```sh
+   git merge origin/main
+   ```
+
+4. **Push the updated `qa` branch to the remote repository:**
+
+   ```sh
+   git push origin qa
+   ```
+
+### Summary of Merge Strategies
+
+- **Feature/Bug Fix/Documentation branch to `qa`**: Use the `Squash` merge strategy.
+- **`qa` to `main`**: Use the `Merge Commit` strategy.
+- **`main` to `qa`**: Use the `Merge Commit` strategy.
 
 ---
 
-### Squash Merge and Rebase Commit Guidelines
+### Squash Merge Guidelines
 
 - **Squash Merges** into `qa`: Consolidate multiple commits from a feature, fix, or documentation branch into a single commit for clarity.
-- **Rebase from `qa` to `main`**: Use rebasing to apply all tested and approved commits from `qa` on top of `main` to maintain a clean, linear history.
 
 #### For Features:
 - Format: `feat(<ticket-number>) <message>`
@@ -159,17 +180,6 @@ This section describes the branching and merge process used in this project to e
 
 ---
 
-#### 7. Merging Into `QA`
-- After the review process, all branches (feature, bug fix, and documentation branches) are merged into `qa` for integration testing.
-- Ensure these merges are done as **Squash** merges with commit messages following the above conventions.
-
-#### 8. Promoting Changes to `Main`
-- Once a release (including documentation updates) is ready, create a PR from `qa` to `main`.
-- Perform all necessary tests and approvals before merging.
-- Merges into `main` are also done as **Squash** merges, ensuring the final commit message reflects the feature (`feat`), bug fix (`fix`), or documentation (`doc`) conventions outlined above.
-
----
-
 ### Restrictions and Guidelines
 1. **Direct merges into `main` are not allowed.**
     - All changes must go through `qa` first.
@@ -181,27 +191,6 @@ This section describes the branching and merge process used in this project to e
    git checkout <your-branch>
    git pull origin qa
    ```
-
----
-
-### Examples of Branch Naming
-1. **Feature Example**:
-    - For ticket #1234 to add a new user authentication feature:
-      ```bash
-      git checkout -b feat/1234-add-user-auth
-      ```
-
-2. **Bug Fix Example**:
-    - For ticket #5678 to fix a login bug:
-      ```bash
-      git checkout -b fix/5678-fix-login-bug
-      ```
-
-3. **Documentation Example**:
-    - For ticket #9101 to update the README file with new instructions:
-      ```bash
-      git checkout -b doc/9101-update-readme
-      ```
 
 ---
 
