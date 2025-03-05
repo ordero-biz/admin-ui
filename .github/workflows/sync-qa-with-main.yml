@@ -39,7 +39,6 @@ jobs:
 
       # Step 4: If `main` is ahead, create a branch with forced changes
       - name: Create a sync branch (force PR)
-        if: ${{ env.commits_ahead != '0' }}
         run: |
           # Create and switch to a new branch from `main`
           git checkout -b temp-sync-main-to-qa origin/main
@@ -53,7 +52,6 @@ jobs:
       # Step 5: Create pull request using `peter-evans/create-pull-request`
       - name: Create Pull Request
         id: create_pr
-        if: ${{ env.commits_ahead != '0' }}
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -70,14 +68,12 @@ jobs:
 
       # Step 6: Debug PR Creation
       - name: Debug Created PR
-        if: ${{ steps.create_pr.outputs.pull-request-url != '' }}
         run: |
           echo "PR URL: ${{ steps.create_pr.outputs.pull-request-url }}"
           echo "Branch: ${{ steps.create_pr.outputs.pull-request-branch }}"
 
       # Step 7: Auto-approve Pull Request
       - name: Auto-Approve PR
-        if: ${{ steps.create_pr.outputs.pull-request-url != '' }}
         run: |
           PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
           echo "Auto-approving PR #$PR_NUMBER"
@@ -88,7 +84,6 @@ jobs:
 
       # Step 8: Auto-merge Pull Request
       - name: Auto-Merge PR
-        if: ${{ steps.create_pr.outputs.pull-request-url != '' }}
         run: |
           PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
           echo "Auto-merging PR #$PR_NUMBER"
