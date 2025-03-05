@@ -1,58 +1,63 @@
-name: Sync QA with Main
+name: Sync Main to QA
 
 on:
-  workflow_dispatch: # Allows manual triggering of the workflow
+  workflow_dispatch: # Allows manual triggering of this workflow
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: write      # Needed to push/merge pull requests
+  pull-requests: write # Needed to create and merge PRs
 
 jobs:
-  sync:
-    if: github.event_name == 'workflow_dispatch'
+  create-and-merge-pr:
+    name: Create and Merge PR from Main to QA
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout main branch
-        uses: actions/checkout@v3
-        with:
-          ref: main # Ensure the main branch is checked out
-          fetch-depth: 0
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Set up Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      # Step 2: Fetch all branches
+      - name: Fetch remote branches
+        run: git fetch --all
 
-      - name: Create a new branch from main
+      # Step 3: Create a new sync branch
+      - name: Create sync branch
         run: |
+          git checkout main
           git checkout -b sync-main-to-qa
+          git push origin sync-main-to-qa
 
-      - name: Merge qa into the new branch
-        run: |
-          git fetch origin qa
-          git merge origin/qa --no-ff --no-commit
-
-      - name: Push the new branch
-        run: |
-          git push -u origin sync-main-to-qa
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create pull request
+      # Step 4: Create the pull request
+      - name: Create a pull request
         id: create_pr
-        uses: peter-evans/create-pull-request@v4.1.1
+        uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          base: qa
           branch: sync-main-to-qa
-          title: 'Sync QA with Main'
-          body: 'This is an automated pull request to sync the `qa` branch with the latest changes from the `main` branch.'
-          commit-message: 'Sync QA with Main'
+          base: qa
+          title: Merge main into qa
+          body: |
+            This is an automated pull request to sync changes from the main branch into the qa branch.
+          labels: automated # Optional: Add relevant labels
 
-      - name: Merge pull request
-        run: |
-          gh pr merge ${{ steps.create_pr.outputs.pull-request-number }} --merge --admin
+      # Step 5: Approve the pull request using GitHub REST API
+      - name: Approve the pull request
+        if: steps.create_pr.outputs.pull-request-url != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USER: ${{ github.actor }}
+        run: |
+          PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
+          curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+               -X POST "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews" \
+               -d '{"event":"APPROVE"}'
+
+      # Step 6: Merge the pull request using GitHub REST API
+      - name: Merge pull request
+        if: steps.create_pr.outputs.pull-request-url != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
+          curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+               -X PUT "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge"
