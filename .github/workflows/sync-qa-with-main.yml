@@ -30,13 +30,13 @@ jobs:
           echo "Main is $COMMITS_AHEAD commits ahead of QA"
           echo "commits_ahead=$(echo "$COMMITS_AHEAD" | xargs)" >> $GITHUB_ENV
 
-      # Debugging: Log commits_ahead value
-      - name: Debug commits_ahead value
+      # Debug commits ahead
+      - name: Log commits ahead
         run: |
           echo "Commits ahead value: ${{ env.commits_ahead }}"
 
       # Ensure a dummy commit for PR creation
-      - name: Ensure a dummy commit for PR creation
+      - name: Create dummy commit for PR
         if: ${{ env.commits_ahead != '0' }}
         run: |
           git config --global user.name "GitHub Actions"
@@ -45,16 +45,38 @@ jobs:
           # Create a temporary branch based on main
           git checkout -b temp-sync-main-to-qa origin/main
           
-          # Add a dummy commit if there are no changes
+          # Add a dummy commit
           git commit --allow-empty -m "Dummy commit to force PR creation"
           
           # Push the temporary branch to origin
           git push origin temp-sync-main-to-qa
 
-      # Debugging: Check dummy commit in temporary branch
+      # Debug pushed branches
+      - name: Check pushed branches
+        if: ${{ env.commits_ahead != '0' }}
+        run: git branch -r
+
+      # Debug: Log commits in temporary branch
       - name: Debug temporary branch
         if: ${{ env.commits_ahead != '0' }}
         run: git log origin/temp-sync-main-to-qa --oneline
+
+      # Create the PR
+      - name: Create PR from main to qa
+        id: create_pr
+        if: ${{ env.commits_ahead != '0' }}
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: temp-sync-main-to-qa
+          base: qa
+          title: Sync main to qa
+          body: |
+            This automated PR merges the latest changes from `main` into `qa`.
+          labels: automated
+          delete-branch: true
+          commit-message: Sync main to qa
+          branch-suffix: timestamp  # Avoid branch name collisions
 
       # Step 4: Create PR from main to qa
       - name: Create PR from main to qa
