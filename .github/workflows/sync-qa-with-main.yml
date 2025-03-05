@@ -34,9 +34,9 @@ jobs:
 
       # Step 3: Log the PR output
       - name: Log PR creation output
-        run:
+        run: |
           echo "Created PR: ${{ steps.create_pr.outputs.pull-request-url }}"
-
+      
       # Step 4: Automatically approve the pull request
       - name: Approve the pull request
         if: steps.create_pr.outputs.pull-request-url != ''
