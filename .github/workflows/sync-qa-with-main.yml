@@ -25,10 +25,16 @@ jobs:
       - name: Compare main and qa branches
         id: check_diff
         run: |
-          # Check if main is ahead of qa by checking for differences in commits
-          git checkout qa
-          COMMITS_BEHIND=$(git rev-list --left-only --count qa...origin/main)
-          echo "commits_behind=$COMMITS_BEHIND" >> $GITHUB_ENV
+          # Ensure remote branches are up to date
+          git fetch origin main:main qa:qa
+
+          # Compare remote main and qa branches
+          COMMITS_AHEAD=$(git rev-list --left-only --count origin/main...origin/qa)
+
+          echo "Main is $COMMITS_AHEAD commits ahead of QA"
+          echo "commits_ahead=$COMMITS_AHEAD" >> $GITHUB_ENV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Step 4: Create the Pull Request from main to qa
       - name: Create PR from main to qa if changes exist
