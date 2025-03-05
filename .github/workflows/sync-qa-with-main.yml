@@ -52,7 +52,7 @@ jobs:
 
       - name: Merge pull request
         run: |
-          gh pr merge ${{ steps.create_pr.outputs.pull-request-number }} --merge --admin --repo ${GITHUB_REPOSITORY}
+          gh pr merge ${{ steps.create_pr.outputs.pull-request-number }} --merge --admin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USER: ${{ github.actor }}
