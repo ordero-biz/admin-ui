@@ -10,6 +10,7 @@ on:
 
 jobs:
   sync:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
@@ -32,6 +33,5 @@ jobs:
           git merge origin/main
 
       - name: Push changes to qa
-        run: git push origin qa
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git push https://username:${{ secrets.ACTIONS_PAT }}@github.com/ordero-biz/admin-ui.git qa
