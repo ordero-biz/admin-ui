@@ -1,15 +1,16 @@
-name: Sync Main to QA
+name: Create PR from main to qa
 
+# Trigger manually via workflow_dispatch
 on:
-  workflow_dispatch: # Allows manual triggering of this workflow
+  workflow_dispatch: # Manual trigger ONLY
 
 permissions:
-  contents: write      # Needed to push/merge pull requests
-  pull-requests: write # Needed to create and merge PRs
+  contents: write      # Needed to push/create pull requests
+  pull-requests: write # Needed to create PRs
 
 jobs:
-  create-and-merge-pr:
-    name: Create and Merge PR from Main to QA
+  create-pr:
+    name: Create Pull Request from main to qa
     runs-on: ubuntu-latest
 
     steps:
@@ -17,31 +18,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Fetch all branches
-      - name: Fetch remote branches
-        run: git fetch --all
-
-      # Step 3: Create a new sync branch
-      - name: Create sync branch
-        run: |
-          git checkout main
-          git checkout -b sync-main-to-qa
-          git push origin sync-main-to-qa
-
-      # Step 4: Create the pull request
-      - name: Create a pull request
+      # Step 2: Create the pull request
+      - name: Create PR directly from main to qa
         id: create_pr
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: sync-main-to-qa
-          base: qa
+          base: qa          # Target branch
+          branch: main       # Source branch
           title: Merge main into qa
           body: |
-            This is an automated pull request to sync changes from the main branch into the qa branch.
-          labels: automated # Optional: Add relevant labels
+            This pull request directly merges the main branch into the qa branch.
+          labels: automated # Optional: Add an "automated" label
+          reviewers: ${{ github.actor }} # Optional: Add the workflow runner as the reviewer
 
-      # Step 5: Approve the pull request using GitHub REST API
+      # Step 3: Log the PR output
+      - name: Log PR creation output
+        run:
+          echo "Created PR: ${{ steps.create_pr.outputs.pull-request-url }}"
+
+      # Step 4: Automatically approve the pull request
       - name: Approve the pull request
         if: steps.create_pr.outputs.pull-request-url != ''
         env:
@@ -52,8 +48,8 @@ jobs:
                -X POST "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews" \
                -d '{"event":"APPROVE"}'
 
-      # Step 6: Merge the pull request using GitHub REST API
-      - name: Merge pull request
+      # Step 5: Automatically merge the pull request
+      - name: Merge the pull request
         if: steps.create_pr.outputs.pull-request-url != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
