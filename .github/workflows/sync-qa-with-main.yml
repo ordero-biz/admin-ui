@@ -40,7 +40,7 @@ jobs:
 
       - name: Create pull request
         id: create_pr
-        uses: peter-evans/create-pull-request@v7.0.8
+        uses: peter-evans/create-pull-request@v4.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           base: qa
@@ -50,16 +50,18 @@ jobs:
           commit-message: 'Sync QA with Main'
 
       - name: Checkout the created pull request branch
+        if: steps.create_pr.outputs.pull-request-number != ''
         run: |
-          git fetch origin pull/${{ steps.create_pr.outputs.pull_request_number }}/head:pr-${{ steps.create_pr.outputs.pull_request_number }}
-          git checkout pr-${{ steps.create_pr.outputs.pull_request_number }}
+          git fetch origin pull/${{ steps.create_pr.outputs.pull-request-number }}/head:pr-${{ steps.create_pr.outputs.pull-request-number }}
+          git checkout pr-${{ steps.create_pr.outputs.pull-request-number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Merge the pull request
+        if: steps.create_pr.outputs.pull-request-number != ''
         run: |
           git checkout qa
-          git merge pr-${{ steps.create_pr.outputs.pull_request_number }}
+          git merge pr-${{ steps.create_pr.outputs.pull-request-number }}
           git push origin qa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
