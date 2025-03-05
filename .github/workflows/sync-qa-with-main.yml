@@ -30,7 +30,6 @@ jobs:
           COMMITS_AHEAD=$(git rev-list --left-only --count origin/main...origin/qa)
           echo "Main is $COMMITS_AHEAD commits ahead of QA"
           echo "commits_ahead=$COMMITS_AHEAD" >> $GITHUB_ENV
-          echo "export COMMITS_AHEAD=$COMMITS_AHEAD" >> $GITHUB_ENV
 
       # Debugging commit comparison
       - name: Debug Commits Ahead
@@ -75,3 +74,37 @@ jobs:
         run: |
           echo "Pull Request URL: ${{ steps.create_pr_step.outputs.pull-request-url }}"
           echo "Pull Request Branch: ${{ steps.create_pr_step.outputs.pull-request-branch }}"
+
+      # Step 6: Auto-approve Pull Request
+      - name: Auto-approve pull request
+        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL="${{ steps.create_pr_step.outputs.pull-request-url }}"
+          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+          echo "Auto-approving PR #$PR_NUMBER"
+
+          # Approve the pull request using GitHub API
+          curl -X POST \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
+            -d '{"body": "Auto-approved by workflow.", "event": "APPROVE"}'
+
+      # Step 7: Auto-merge Pull Request
+      - name: Auto-merge pull request
+        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL="${{ steps.create_pr_step.outputs.pull-request-url }}"
+          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+          echo "Attempting to auto-merge PR #$PR_NUMBER"
+
+          # Merge the pull request using GitHub API
+          curl -X PUT \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
+            -d '{"merge_method": "squash"}'
