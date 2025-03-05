@@ -22,7 +22,7 @@ jobs:
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
-      # Step 3: Compare commits between main and qa (check ahead difference)
+      # Step 3: Compare commits between main and qa
       - name: Compare main and qa branches
         id: check_diff
         run: |
@@ -31,26 +31,21 @@ jobs:
           echo "Main is $COMMITS_AHEAD commits ahead of QA"
           echo "commits_ahead=$COMMITS_AHEAD" >> $GITHUB_ENV
 
-      # Debugging commit comparison
-      - name: Debug Commits Ahead
-        run: |
-          echo "Commits ahead of QA: ${{ env.commits_ahead }}"
-
       # Step 4: Create a branch to force the PR creation
       - name: Create new sync branch
         run: |
-          # Create a new branch from main
-          git checkout -b temp-sync-main-to-qa origin/main
+          # Create or reset the branch temp-sync-main-to-qa
+          git checkout -B temp-sync-main-to-qa origin/main
 
-          # Commit a unique file to ensure there is always a difference
-          echo "Forced sync by workflow at $(date)" > .forced-sync.txt
-          git add .forced-sync.txt
-          git commit -m "[Automated] Force PR creation with forced sync commit"
+          # Add a unique dummy change to force PR creation if needed
+          echo "Forced sync by workflow at $(date)" >> .dummy-sync
+          git add .dummy-sync
+          git commit -m "[Automated] Force PR creation with dummy commit" || echo "No changes to commit"
 
-          # Push the branch to origin
+          # Push the changes to the remote repository
           git push --force origin temp-sync-main-to-qa
 
-      # Step 5: Create a pull request (force it with or without branch difference)
+      # Step 5: Create a pull request (force PR creation)
       - name: Create Pull Request
         id: create_pr_step
         uses: peter-evans/create-pull-request@v5
@@ -61,11 +56,11 @@ jobs:
           title: "[Automated] Sync main to qa"
           body: |
             ## Automated Pull Request
-            This PR merges changes from `main` into `qa` (forced creation).
+            This PR merges changes from `main` into `qa`.
 
             **Commits Ahead in Main:** ${{ env.commits_ahead }}
           labels: automated
-          delete-branch: true
+          delete-branch: false
           commit-message: "[Automated] Sync main to qa - Forced PR"
 
       # Debugging PR Creation
@@ -85,7 +80,6 @@ jobs:
           PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
           echo "Auto-approving PR #$PR_NUMBER"
 
-          # Approve the pull request using GitHub API
           curl -X POST \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
@@ -102,7 +96,6 @@ jobs:
           PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
           echo "Attempting to auto-merge PR #$PR_NUMBER"
 
-          # Merge the pull request using GitHub API
           curl -X PUT \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
