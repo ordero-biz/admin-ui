@@ -2,6 +2,8 @@ name: Sync QA with Main
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *" # Runs daily at midnight (UTC)
 
 jobs:
   sync_qa_with_main:
@@ -43,67 +45,55 @@ jobs:
         run: |
           # Create and switch to a new temporary branch
           git checkout -b temp-sync-main-to-qa origin/main
-  <<<<<<< HEAD
-  
-  # Push the branch to origin (even if files are identical)
-  =======
-  
-  # Introduce a meaningful and unique dummy change with a timestamp
-  echo "Automated sync process at $(date)" >> automated-sync-$(date +'%Y%m%d%H%M%S').log
-  
-  # Stage and commit the change
-  git add .
-  git commit -m "Automated sync process with dummy file"
 
-# Push the temporary branch to origin
-  >>>>>>> origin/feat/action-to-merge-main-to-qa-by-pr-2
-  git push --force origin temp-sync-main-to-qa
+          # Push the branch to origin (even if files are identical)
+          git push --force origin temp-sync-main-to-qa
 
-# Step 4.2: Create PR from temp-sync-main-to-qa to qa
-- name: Create PR from main to qa
-  id: create_pr_step
-  if: ${{ env.commits_ahead != '0' }}
-  uses: peter-evans/create-pull-request@v5
-  with:
-    token: ${{ secrets.GITHUB_TOKEN }}
-    branch: temp-sync-main-to-qa
-    base: qa
-    title: Sync main to qa
-    body: |
-      ### Description
-      This automated PR is created to sync `main` into `qa`.
-    labels: automated
-    delete-branch: true
-    commit-message: Sync main to qa
-    branch-suffix: timestamp
+      # Step 4.2: Create PR from temp-sync-main-to-qa to qa
+      - name: Create PR from main to qa
+        id: create_pr_step
+        if: ${{ env.commits_ahead != '0' }}
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: temp-sync-main-to-qa
+          base: qa
+          title: Sync main to qa
+          body: |
+            ### Description
+            This automated PR is created to sync `main` into `qa`.
+          labels: automated
+          delete-branch: true
+          commit-message: Sync main to qa
+          branch-suffix: timestamp
 
-# Step 4.3: Debug outputs from create-pull-request
-- name: Debug PR creation outputs
-  if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }}
-  run: |
-    echo "Pull request URL: ${{ steps.create_pr_step.outputs.pull-request-url }}"
-    echo "Pull request branch: ${{ steps.create_pr_step.outputs.pull-request-branch }}"
+      # Step 4.3: Debug outputs from create-pull-request
+      - name: Debug PR creation outputs
+        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }}
+        run: |
+          echo "Pull request URL: ${{ steps.create_pr_step.outputs.pull-request-url }}"
+          echo "Pull request branch: ${{ steps.create_pr_step.outputs.pull-request-branch }}"
 
-# Step 5: Auto-approve pull request
-- name: Auto-approve pull request
-  if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }} # Verify PR exists
-  env:
-    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  run: |
-    PR_NUMBER=$(echo "${{ steps.create_pr_step.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
-    curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-      -H "Accept: application/vnd.github+json" \
-      https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
-      -d '{"body": "Automatically approved", "event": "APPROVE"}'
+      # Step 5: Auto-approve pull request
+      - name: Auto-approve pull request
+        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }} # Verify PR exists
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(echo "${{ steps.create_pr_step.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
+          curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
+            -d '{"body": "Automatically approved", "event": "APPROVE"}'
 
-# Step 6: Auto-merge pull request
-- name: Auto-merge pull request
-  if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }} # Verify PR exists
-  env:
-    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  run: |
-    PR_NUMBER=$(echo "${{ steps.create_pr_step.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
-    curl -X PUT -H "Authorization: token $GITHUB_TOKEN" \
-      -H "Accept: application/vnd.github+json" \
-      https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
-      -d '{"merge_method": "squash"}'
+      # Step 6: Auto-merge pull request
+      - name: Auto-merge pull request
+        if: ${{ steps.create_pr_step.outputs.pull-request-url != '' }} # Verify PR exists
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(echo "${{ steps.create_pr_step.outputs.pull-request-url }}" | grep -oE '[0-9]+$')
+          curl -X PUT -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/merge \
+            -d '{"merge_method": "squash"}'
